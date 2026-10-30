@@ -8,42 +8,42 @@
 
 **Goal:** Establish the minimal local FastAPI and React/Vite projects.
 
-- [ ] T001 Create the FastAPI app and minimal Python dependency/test configuration in `backend/app/main.py` and `backend/requirements.txt`.
-- [ ] T002 [P] Create the React/Vite app and Vitest configuration in `frontend/package.json`, `frontend/index.html`, and `frontend/src/App.jsx`.
+- [X] T001 Create the FastAPI app and minimal Python dependency/test configuration in `backend/app/main.py` and `backend/requirements.txt`.
+- [X] T002 [P] Create the React/Vite app and Vitest configuration in `frontend/package.json`, `frontend/index.html`, and `frontend/src/App.jsx`.
 
 ## Phase 2: Foundation — M1
 
 **Goal:** Keep credentials server-side and define shared response shapes before stories.
 
-- [ ] T003 Add server-only placeholder environment settings and secret ignores in `backend/.env.example` and `.gitignore`, and shared profile/insight response models in `backend/app/models.py`; include no real credentials.
+- [X] T003 Add server-only placeholder environment settings and secret ignores in `backend/.env.example` and `.gitignore`, and shared profile/insight response models in `backend/app/models.py`; include no real credentials.
 
 ## Phase 3: US-001 — Public profile lookup (P1, M1)
 
 **Independent test:** Username and equivalent profile URL return the same public profile; invalid input, 404, rate limit, timeout, and repository-fetch failure have distinct outcomes. Profile lookup makes no AI call.
 
-- [ ] T004 [US1] Write mocked profile API tests for normalization, public user and top-100 repository retrieval, error mapping, and zero AI calls in `backend/tests/test_profile.py`. Include one integration test asserting that Portfolio Overview classification adds no GitHub, README, or AI requests beyond the existing profile lookup.
-- [ ] T005 [US1] Implement finite-timeout GitHub requests for `GET /users/{username}` and `GET /users/{username}/repos?type=owner&sort=updated&direction=desc&per_page=100&page=1` in `backend/app/github.py`; retain forks and all fields required by `contracts/api.md`.
-- [ ] T006 [US1] Implement `GET /api/profile` input validation, profile normalization, and visitor-safe errors in `backend/app/main.py`; never present a partial repository fetch as complete.
-- [ ] T007 [US1] Add a frontend interaction test for username/URL lookup, loading, error display, and no insight request in `frontend/src/App.test.jsx`.
-- [ ] T008 [US1] Add profile lookup request handling and loading/error states in `frontend/src/api.js` and `frontend/src/App.jsx`.
+- [X] T004 [US1] Write mocked profile API tests for normalization, public user and top-100 repository retrieval, error mapping, and zero AI calls in `backend/tests/test_profile.py`. Include one integration test asserting that Portfolio Overview classification adds no GitHub, README, or AI requests beyond the existing profile lookup.
+- [X] T005 [US1] Implement finite-timeout GitHub requests for `GET /users/{username}` and `GET /users/{username}/repos?type=owner&sort=updated&direction=desc&per_page=100&page=1` in `backend/app/github.py`; retain forks and all fields required by `contracts/api.md`.
+- [X] T006 [US1] Implement `GET /api/profile` input validation, profile normalization, and visitor-safe errors in `backend/app/main.py`; never present a partial repository fetch as complete.
+- [X] T007 [US1] Add a frontend interaction test for username/URL lookup, loading, error display, and no insight request in `frontend/src/App.test.jsx`.
+- [X] T008 [US1] Add profile lookup request handling and loading/error states in `frontend/src/api.js` and `frontend/src/App.jsx`.
 
 ## Phase 4: US-002 — Statistics and creation timeline (P1, M1)
 
 **Independent test:** Given repository fixtures, statistics and timeline match only the analyzed set, label subset status, link to GitHub, and do not equate dates with work experience.
 
-- [ ] T009 [US2] Write tests for analyzed count, star sum, nullable primary-language counts, latest repository update, creation-date omission, and subset disclosure in `backend/tests/test_analysis.py`.
-- [ ] T010 [US2] Calculate statistics and dated timeline from the at-most-100 returned repositories in `backend/app/github.py`, exposing the `contracts/api.md` response fields.
-- [ ] T011 [US2] Render scoped statistics, repository links, subset count, and the clearly labeled Repository creation timeline in `frontend/src/App.jsx` and `frontend/src/styles.css`.
+- [X] T009 [US2] Write tests for analyzed count, star sum, nullable primary-language counts, latest repository update, creation-date omission, and subset disclosure in `backend/tests/test_analysis.py`.
+- [X] T010 [US2] Calculate statistics and dated timeline from the at-most-100 returned repositories in `backend/app/github.py`, exposing the `contracts/api.md` response fields.
+- [X] T011 [US2] Render scoped statistics, repository links, subset count, and the clearly labeled Repository creation timeline in `frontend/src/App.jsx` and `frontend/src/styles.css`.
 
 ## Phase 5: US-006 — Free Portfolio Overview (P1, M1)
 
 **Independent test:** Fixtures produce one estimated category per fetched repository, including Unclassified for sparse or ambiguous metadata; counts sum to analyzed count. No extra GitHub, README, or AI request occurs.
 
-- [ ] T012 [P] [US6] Write table-driven classifier tests for each category, topic precedence over name/description, same-level conflict, whole-word boundaries (for example `ai` inside another word), language-only input, no match, zero repositories, and count totals for a 100-item subset in `backend/tests/test_classifier.py`.
-- [ ] T013 [US6] Implement the fixed whole-word/phrase keyword map and precedence defined in `plan.md`, plus the deterministic repository-only factual summary, in `backend/app/classifier.py`; ambiguous strongest evidence is Unclassified and primary language cannot classify or break a tie alone.
-- [ ] T014 [US6] Add `topics`, one `estimated_category` per repository, and `portfolio_overview` to the existing profile response in `backend/app/main.py`, using only fetched metadata.
-- [ ] T015 [US6] Add a frontend test for estimated labels, category counts, and the factual summary in `frontend/src/App.test.jsx`.
-- [ ] T016 [US6] Render the free Portfolio Overview beside factual profile analysis in `frontend/src/App.jsx` and `frontend/src/styles.css`, retaining the subset disclosure.
+- [X] T012 [P] [US6] Write table-driven classifier tests for each category, topic precedence over name/description, same-level conflict, whole-word boundaries (for example `ai` inside another word), language-only input, no match, zero repositories, and count totals for a 100-item subset in `backend/tests/test_classifier.py`.
+- [X] T013 [US6] Implement the fixed whole-word/phrase keyword map and precedence defined in `plan.md`, plus the deterministic repository-only factual summary, in `backend/app/classifier.py`; ambiguous strongest evidence is Unclassified and primary language cannot classify or break a tie alone.
+- [X] T014 [US6] Add `topics`, one `estimated_category` per repository, and `portfolio_overview` to the existing profile response in `backend/app/main.py`, using only fetched metadata.
+- [X] T015 [US6] Add a frontend test for estimated labels, category counts, and the factual summary in `frontend/src/App.test.jsx`.
+- [X] T016 [US6] Render the free Portfolio Overview beside factual profile analysis in `frontend/src/App.jsx` and `frontend/src/styles.css`, retaining the subset disclosure.
 
 **M1 checkpoint:** Run focused backend and frontend tests and a local profile smoke check. Report results and changed files; wait for explicit human approval before M2.
 
