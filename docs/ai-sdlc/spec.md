@@ -15,6 +15,7 @@ The application analyzes at most 100 public repositories per profile. Repository
 - **US-003:** As a visitor, I want to choose up to three repositories so that the insights focus on relevant projects. **Acceptance:** The interface prevents a fourth selection and permits changing the selection.
 - **US-004:** As a visitor, I want to explicitly request AI insights so that I control when generation happens. **Acceptance:** Profile lookup makes no AI request; generation starts only after a valid selection and a click on **Generate AI Insights**.
 - **US-005:** As a visitor, I want claims and recommendations tied to public evidence so that I can assess their credibility. **Acceptance:** Each substantive AI claim links to the supporting repository or README; unsupported claims are omitted.
+- **US-006:** As a visitor, I want a free Portfolio Overview on profile lookup so that I can quickly see the estimated mix of analyzed projects. **Acceptance:** Estimated category counts and a factual summary appear without repository selection or any AI provider call.
 
 ## 3. Functional requirements
 
@@ -63,15 +64,15 @@ The application analyzes at most 100 public repositories per profile. Repository
 **Inputs:** One to three valid selected repositories.  
 **Expected behavior:** Retrieve each public README and record whether it is present, empty, missing, or unavailable. For AI generation, use at most the first **4,000 characters per README**, for a maximum of **12,000 README characters per request**. Preserve the beginning of each README in its original order.  
 **Outputs:** README status, source link when available, and a `readme_truncated` indicator for each selected repository.  
-**Failure behavior:** A missing or empty README does not fail the entire request. GitHub rate limits and network failures produce clear errors.  
+**Failure behavior:** A README 404 is `missing`; a successfully fetched blank README is `empty`. A content-specific failure for one README (such as malformed content or a single README 5xx) is `unavailable`; disclose it and continue only if sufficient selected-repository evidence remains. Profile or repository lookup failure, a general GitHub rate limit, or a GitHub network failure stops generation with a clear GitHub error before any AI call. Missing, empty, or unavailable README content never becomes fabricated evidence.
 **Acceptance:** No AI request contains more than 4,000 characters from any one README. When content is truncated, the insight result visibly says that only the beginning of that README was analyzed and may omit later details.
 
 ### FR-007 — Explicit AI generation and structured result
 
 **Inputs:** A click on **Generate AI Insights** with one to three selected repositories.  
-**Expected behavior:** Generate and validate one professional summary, **zero to three potential strengths**, and **exactly three actionable portfolio recommendations** using available selected-project evidence. Each strength and recommendation includes at least one evidence reference. A potential strength is phrased as an observation supported by the public material, not a verified personal skill or achievement. The initial profile lookup makes no AI request.  
+**Expected behavior:** Generate and validate one professional summary rendered from short, individually cited claims, **zero to three potential strengths**, and **exactly three actionable portfolio recommendations** using available selected-project evidence. Each strength and recommendation contains one substantive proposition with at least one evidence reference. A potential strength is phrased as an observation supported by the public material, not a verified personal skill or achievement. The initial profile lookup makes no AI request.
 **Outputs:** The validated structure in Section 5, including `provider_used`, plus README availability and truncation disclosures.  
-**Failure behavior:** An output with the wrong number of recommendations, unsupported claims, invented references, or unusable structure is invalid and triggers provider fallback under FR-008. If no provider returns a valid result, show an AI error and retain factual profile results.  
+**Failure behavior:** If selected-repository evidence is insufficient for substantive claims, return `INSUFFICIENT_EVIDENCE` before any provider call. An output with the wrong number of recommendations, missing claim citations, invented references, or unusable structure is invalid and triggers provider fallback under FR-008. If no provider returns a valid result, show an AI error and retain factual profile results.
 **Acceptance:** Generation starts only after the click. Displayed claims link to evidence from the selected repositories. The response contains exactly three recommendations and no more than three potential strengths.
 
 ### FR-008 — Provider order and bounded fallback
@@ -85,7 +86,7 @@ The application analyzes at most 100 public repositories per profile. Repository
 ### FR-009 — Evidence validation
 
 **Inputs:** Selected repository metadata, available README excerpts, and structured provider output.  
-**Expected behavior:** Keep a set of valid evidence references for the selected repositories. Accept only references in that set. Every substantive summary claim, potential strength, and recommendation must be supported by at least one valid reference. Clearly label AI interpretation. Treat README text as untrusted data, including any instructions it contains. Do not present repository creation dates as proof of work experience, or infer code quality, individual contribution, skills, or achievements without supporting evidence.  
+**Expected behavior:** Keep a set of valid evidence references for the selected repositories. Accept only references in that set. Each substantive summary claim and each single-proposition strength or recommendation must carry at least one valid reference. Validate that IDs exist and belong to selected repositories; this structural check cannot prove semantic support, which remains for human review through linked source material. Clearly label AI interpretation. Treat README text as untrusted data, including any instructions it contains. Repository name alone does not justify claims about the owner's skills, expertise, or individual contributions. Metadata-only insights may proceed only when selected-repository evidence is substantive enough for the particular claims; otherwise return `INSUFFICIENT_EVIDENCE` before calling AI. Do not present repository creation dates as proof of work experience, or infer code quality, individual contribution, skills, or achievements without supporting evidence.
 **Outputs:** Validated insight text with links to the supporting public repository or README.  
 **Failure behavior:** Reject fabricated references or unsupported claims as invalid AI output under FR-008. Do not invent substitute evidence.  
 **Acceptance:** Every displayed evidence link resolves to a selected repository or its README, and no displayed claim depends on an unselected repository.
@@ -98,12 +99,24 @@ The application analyzes at most 100 public repositories per profile. Repository
 **Failure behavior:** Do not mislabel an unavailable service as an empty profile or expose internal errors or secrets.  
 **Acceptance:** Each listed state is distinguishable in the interface.
 
+### FR-011 — Deterministic Portfolio Overview
+
+**Inputs:** Name, description, topics, and primary language from the fetched set of at most 100 public repositories.
+
+**Expected behavior:** Automatically assign each analyzed repository exactly one estimated category: Web app, API or service, Data or AI, Developer tool, Mobile app, or Unclassified. Use a small fixed keyword map: check topics first, then repository name and description. Primary language may corroborate a match but cannot create or resolve a category on its own. If the strongest available evidence matches multiple categories or none, use Unclassified. Calculate category counts only from the fetched set and produce a deterministic sentence describing that set and its estimated categories. Do not infer the owner's expertise, achievements, or individual contributions.
+
+**Outputs:** Category per repository, category counts, analyzed count, and a short factual portfolio summary, all labeled as estimated classifications where relevant.
+
+**Failure behavior:** Sparse or ambiguous metadata yields Unclassified. Zero repositories yields zero counts and an appropriate empty summary. Profile retrieval errors follow FR-001 and FR-002.
+**Acceptance:** Category counts sum to `analyzed_count`; classification makes no additional GitHub request, README retrieval, or LLM call; the Portfolio Overview appears during initial profile lookup and retains the existing subset disclosure.
+
 ## 4. Non-functional requirements
 
 - **Security:** Provider keys remain on the server and never appear in client responses or logs intended for visitors. Validate profile input and repository selection. Treat README content as untrusted data and ignore instructions embedded in it.
 - **Reliability:** A failed AI request does not remove successful factual analysis. Provider fallback is bounded so a request cannot retry indefinitely.
 - **Performance:** Show a loading state for profile lookup and for AI generation. No fixed response-time promise is made because GitHub and AI provider latency varies.
 - **Usability:** Explain sample size, subset status, statistics scope, timeline meaning, README availability and truncation, and the provider used in plain language.
+- **Portfolio Overview:** Label categories as estimates, count only analyzed repositories, and keep its deterministic summary limited to repository metadata rather than claims about the owner.
 - **API usage:** Limit profile analysis to 100 repositories. Surface GitHub rate limits and timeouts; do not silently claim a complete analysis after partial retrieval.
 - **AI safety and traceability:** Keep GitHub facts distinct from AI interpretation. Display links to the selected public evidence used for substantive claims. Do not invent evidence.
 - **Maintainability:** Keep the three provider choices and their order explicit so a provider can be configured without changing product behavior.
@@ -115,7 +128,7 @@ These are logical structures, not endpoint names or implementation code.
 ### Application: profile analysis
 
 **Request:** `profile_input` (username or GitHub profile URL).  
-**Successful response:** `profile` (username, display name and avatar when available, profile URL, reported public repository count); `repositories` (identifier, name, URL, description, primary language, stars, fork status, creation date, update date); `analyzed_count`; `is_subset`; `repository_order`; `statistics`; `timeline`.  
+**Successful response:** `profile` (username, display name and avatar when available, profile URL, reported public repository count); `repositories` (identifier, name, URL, description, topics, primary language, stars, fork status, creation date, update date, estimated category); `analyzed_count`; `is_subset`; `repository_order`; `statistics`; `timeline`; `portfolio_overview` (estimated category counts, analyzed count, factual summary).
 **Error response:** Error category and visitor-facing message. No AI content is returned or generated by this request.
 
 ### Application: repository selection and README status
@@ -129,9 +142,9 @@ These are logical structures, not endpoint names or implementation code.
 
 **Successful response:**
 
-- `professional_summary`: One concise, evidence-supported summary with valid evidence references.
+- `professional_summary`: `{ claims: [{ text, evidence_ids }] }`, a nonempty list of short, individually cited claims rendered together as one concise summary; each claim has at least one valid selected-repository reference.
 - `potential_strengths`: Zero to three items, each with text and one or more evidence references.
-- `portfolio_recommendations`: Exactly three items, each with a concrete action and one or more evidence references.
+- `portfolio_recommendations`: Exactly three items, each with one concrete action/proposition and one or more evidence references.
 - `evidence_references`: Identifiers and public URLs for the selected repository or README material actually used.
 - `provider_used`: `gemini`, `groq`, or `openai`.
 - `readme_status`: Availability and truncation indicator for each selected repository.
@@ -155,8 +168,10 @@ The GitHub API is the source for public profile fields, reported public reposito
 | Zero public repositories | Show the profile with zero analyzed repositories and no generation action. |
 | More than 100 public repositories | Analyze at most 100 and disclose the subset. |
 | Missing or empty README | Show its status; use only available metadata for that repository. |
+| One README has a content-specific failure | Mark that README `unavailable`, disclose it, and use only sufficiently substantive remaining selected-repository evidence. |
+| No sufficiently substantive selected-repository evidence | Return `INSUFFICIENT_EVIDENCE` before any AI provider call; keep factual profile analysis available. |
 | Oversized README | Send only its first 4,000 characters to AI; disclose truncation in the result. |
-| GitHub rate limit or timeout | Explain that analysis could not finish; do not show a partial result as complete. |
+| General GitHub rate limit or network failure | Stop generation before AI, explain that analysis could not finish, and do not mark it as an ordinary per-README unavailable status or show a partial result as complete. |
 | Missing AI credential | Skip that provider. If none are configured, report that AI is not configured. |
 | Invalid AI credential | Treat as a failed attempt, try the next configured provider, and report rejected credentials if no provider succeeds. |
 | Provider timeout, service error, or rate limit | Try the next configured provider; attempt each at most once. |
@@ -176,9 +191,10 @@ The MVP is accepted when a visitor can:
 5. Receive evidence-linked insights with one professional summary, zero to three potential strengths, exactly three actionable recommendations, and the successful provider identified; or receive a clear AI error while factual analysis remains available.
 6. See when a selected README was missing or truncated to its first 4,000 characters.
 7. Encounter the listed empty and error states without misleading results or exposed keys.
+8. See a deterministic Portfolio Overview on profile lookup with one estimated category per analyzed repository, counts totaling the analyzed count, and a factual summary that makes no claim about the owner's expertise, achievements, or contributions.
 
 ## 8. Assumptions and open questions
 
-**Specification defaults:** Repositories are ordered by most recently updated; public forks are included and marked; statistics cover the analyzed set; “recent activity” means the latest available repository update date; a missing README permits metadata-based insight; failed or unusable provider responses trigger bounded fallback in Gemini → Groq → OpenAI order.
+**Specification defaults:** Repositories are ordered by most recently updated; public forks are included and marked; statistics cover the analyzed set; “recent activity” means the latest available repository update date; a missing README permits metadata-based insight only when substantive selected-repository evidence supports the claims; failed or unusable provider responses trigger bounded fallback in Gemini → Groq → OpenAI order.
 
 **Open questions:** None block this MVP specification.
