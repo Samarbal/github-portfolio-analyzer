@@ -66,6 +66,14 @@ class ProfileAnalysis(BaseModel):
     portfolio_overview: PortfolioOverview
 
 
+class ReadmeEvidence(BaseModel):
+    repository_id: int
+    status: Literal["present", "empty", "missing", "unavailable"]
+    url: str | None
+    content: str
+    readme_truncated: bool
+
+
 class InsightClaim(BaseModel):
     text: str
     evidence_ids: list[str]

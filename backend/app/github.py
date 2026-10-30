@@ -2,11 +2,11 @@ import os
 import re
 from collections import Counter
 from datetime import datetime
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import httpx
 
-from .models import Repository, Statistics, Timeline, TimelineEntry
+from .models import ReadmeEvidence, Repository, Statistics, Timeline, TimelineEntry
 
 GITHUB_API = "https://api.github.com"
 USERNAME = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$")
@@ -16,6 +16,10 @@ class GitHubError(Exception):
     def __init__(self, code: str):
         self.code = code
         super().__init__(code)
+
+
+class InvalidSelection(ValueError):
+    pass
 
 
 def normalize_username(value: str) -> str:
@@ -50,12 +54,7 @@ async def get_json(path: str, params: dict | None = None):
         raise GitHubError("GITHUB_UNAVAILABLE") from exc
     if response.status_code == 404:
         raise GitHubError("PROFILE_NOT_FOUND" if not path.endswith("/repos") else "GITHUB_UNAVAILABLE")
-    rate_limited_403 = response.status_code == 403 and (
-        response.headers.get("X-RateLimit-Remaining") == "0"
-        or "Retry-After" in response.headers
-        or "rate limit" in response.text.lower()
-    )
-    if response.status_code == 429 or rate_limited_403:
+    if is_rate_limited(response):
         raise GitHubError("GITHUB_RATE_LIMITED")
     if response.status_code >= 400:
         raise GitHubError("GITHUB_UNAVAILABLE")
@@ -63,6 +62,16 @@ async def get_json(path: str, params: dict | None = None):
         return response.json()
     except ValueError as exc:
         raise GitHubError("GITHUB_UNAVAILABLE") from exc
+
+
+def is_rate_limited(response: httpx.Response) -> bool:
+    return response.status_code == 429 or (
+        response.status_code == 403 and (
+            response.headers.get("X-RateLimit-Remaining") == "0"
+            or "Retry-After" in response.headers
+            or "rate limit" in response.text.lower()
+        )
+    )
 
 
 def valid_date(value: str | None) -> str | None:
@@ -99,3 +108,60 @@ def build_timeline(repositories: list[Repository]) -> Timeline:
     entries = [TimelineEntry(repository_id=repository.id, name=repository.name,
                              url=repository.url, created_at=repository.created_at) for repository in dated]
     return Timeline(entries=entries, omitted_missing_date_count=len(repositories) - len(entries))
+
+
+def validate_selection(repository_ids: list[int], repositories: list[Repository]) -> list[Repository]:
+    if not isinstance(repository_ids, list) or not 1 <= len(repository_ids) <= 3:
+        raise InvalidSelection("Select one to three repositories")
+    if any(type(identifier) is not int for identifier in repository_ids):
+        raise InvalidSelection("Repository IDs must be integers")
+    if len(set(repository_ids)) != len(repository_ids):
+        raise InvalidSelection("Duplicate repository ID")
+    available = {repository.id: repository for repository in repositories}
+    if any(identifier not in available for identifier in repository_ids):
+        raise InvalidSelection("Repository is outside the analyzed set")
+    return [available[identifier] for identifier in repository_ids]
+
+
+async def fetch_readme(owner: str, repository: Repository) -> ReadmeEvidence:
+    path = f"/repos/{quote(owner, safe='')}/{quote(repository.name, safe='')}/readme"
+    try:
+        async with make_client() as client:
+            response = await client.get(path, headers={"Accept": "application/vnd.github.raw+json"})
+    except httpx.TimeoutException as exc:
+        raise GitHubError("GITHUB_TIMEOUT") from exc
+    except httpx.RequestError as exc:
+        raise GitHubError("GITHUB_UNAVAILABLE") from exc
+
+    status = response.status_code
+    if is_rate_limited(response):
+        raise GitHubError("GITHUB_RATE_LIMITED")
+    if status == 404:
+        return ReadmeEvidence(repository_id=repository.id, status="missing", url=None,
+                              content="", readme_truncated=False)
+    if 500 <= status <= 599:
+        return ReadmeEvidence(repository_id=repository.id, status="unavailable", url=None,
+                              content="", readme_truncated=False)
+    if status >= 400:
+        raise GitHubError("GITHUB_UNAVAILABLE")
+    try:
+        content = response.content.decode("utf-8")
+    except UnicodeDecodeError:
+        return ReadmeEvidence(repository_id=repository.id, status="unavailable", url=None,
+                              content="", readme_truncated=False)
+    source_url = f"{repository.url}#readme"
+    if not content.strip():
+        return ReadmeEvidence(repository_id=repository.id, status="empty", url=source_url,
+                              content="", readme_truncated=False)
+    return ReadmeEvidence(repository_id=repository.id, status="present", url=source_url,
+                          content=content[:4000], readme_truncated=len(content) > 4000)
+
+
+async def prepare_selected_readmes(
+    owner: str, repository_ids: list[int], repositories: list[Repository]
+) -> list[ReadmeEvidence]:
+    selected = validate_selection(repository_ids, repositories)
+    prepared = [await fetch_readme(owner, repository) for repository in selected]
+    if sum(len(item.content) for item in prepared) > 12000:
+        raise ValueError("README content limit exceeded")
+    return prepared

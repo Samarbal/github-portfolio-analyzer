@@ -51,10 +51,10 @@
 
 **Independent test:** Select, deselect, and replace one to three distinct repositories; a fourth or unknown ID is rejected. Mocked README cases distinguish present, empty, missing, unavailable, and truncated content. AI remains uncalled.
 
-- [ ] T017 [US3] Write backend tests for selected-ID validation against the current analyzed set; README 404 as missing, blank content as empty, a single content-specific failure as unavailable, and general rate-limit/network failures as request errors; 4,000-character per-README truncation, 12,000-character total bound, and zero AI calls in `backend/tests/test_readme.py`.
-- [ ] T018 [US3] Add frontend tests for selecting one to three repositories, deselection/replacement, and fourth-selection prevention in `frontend/src/App.test.jsx`.
-- [ ] T019 [US3] Add selected-repository validation and on-demand README retrieval/preparation helpers in `backend/app/github.py`; return status, source URL, and truncation flag. Mark only content-specific single-README failures unavailable; stop on general GitHub rate limits or network failures.
-- [ ] T020 [US3] Implement repository selection state and a visible one-to-three limit in `frontend/src/App.jsx`; clear or mark any prior insight stale when selection changes.
+- [X] T017 [US3] Write backend tests for selected-ID validation against the current analyzed set; README 404 as missing, blank content as empty, a single content-specific failure as unavailable, and general rate-limit/network failures as request errors; 4,000-character per-README truncation, 12,000-character total bound, and zero AI calls in `backend/tests/test_readme.py`.
+- [X] T018 [US3] Add frontend tests for selecting one to three repositories, deselection/replacement, and fourth-selection prevention in `frontend/src/App.test.jsx`.
+- [X] T019 [US3] Add selected-repository validation and on-demand README retrieval/preparation helpers in `backend/app/github.py`; return status, source URL, and truncation flag. Mark only content-specific single-README failures unavailable; stop on general GitHub rate limits or network failures.
+- [X] T020 [US3] Implement repository selection state and a visible one-to-three limit in `frontend/src/App.jsx`; clear or mark any prior insight stale when selection changes.
 
 **M2 checkpoint:** Run focused selection and README tests. Demonstrate selection and backend README preparation with mocked responses; wait for explicit human approval before M3.
 

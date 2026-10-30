@@ -26,6 +26,22 @@ const analysis = {
     estimated: true },
 }
 
+const selectionAnalysis = {
+  ...analysis,
+  repositories: [
+    ...analysis.repositories,
+    ...[2, 3, 4].map(id => ({ ...analysis.repositories[0], id, name: `repo-${id}`,
+      url: `https://github.com/octocat/repo-${id}` })),
+  ],
+  analyzed_count: 4,
+}
+
+async function loadSelectionProfile() {
+  fireEvent.change(screen.getByLabelText(/GitHub username or profile URL/i), { target: { value: 'octocat' } })
+  fireEvent.click(screen.getByRole('button', { name: /Analyze profile/i }))
+  await screen.findByRole('checkbox', { name: /Select sample-api/i })
+}
+
 it('loads a username, scopes facts, and shows the free estimated overview without AI', async () => {
   const requests = []
   vi.stubGlobal('fetch', vi.fn(async (url) => {
@@ -65,4 +81,41 @@ it('accepts a profile URL and displays a useful API error without stale results'
   fireEvent.click(screen.getByRole('button', { name: /Analyze profile/i }))
   expect(await screen.findByText('That GitHub profile was not found.')).toBeInTheDocument()
   await waitFor(() => expect(screen.queryByText('Octo Cat')).not.toBeInTheDocument())
+})
+
+it('selects up to three, blocks a fourth, and permits deselection and replacement without extra requests', async () => {
+  const requests = []
+  vi.stubGlobal('fetch', vi.fn(async (url) => {
+    requests.push(url)
+    return { ok: true, json: async () => selectionAnalysis }
+  }))
+  render(<App />)
+  await loadSelectionProfile()
+  const boxes = [1, 2, 3, 4].map(id => screen.getByRole('checkbox', {
+    name: new RegExp(`Select ${id === 1 ? 'sample-api' : `repo-${id}`}`),
+  }))
+  expect(screen.getByText(/0 of 3 selected/i)).toBeInTheDocument()
+  boxes.slice(0, 3).forEach(box => fireEvent.click(box))
+  expect(screen.getByText(/3 of 3 selected/i)).toBeInTheDocument()
+  expect(boxes[3]).toBeDisabled()
+  expect(requests).toHaveLength(1)
+  fireEvent.click(boxes[1])
+  expect(screen.getByText(/2 of 3 selected/i)).toBeInTheDocument()
+  expect(boxes[3]).not.toBeDisabled()
+  fireEvent.click(boxes[3])
+  expect(boxes[3]).toBeChecked()
+  expect(boxes[1]).not.toBeChecked()
+  expect(screen.queryByRole('button', { name: /Generate AI Insights/i })).not.toBeInTheDocument()
+  expect(requests).toHaveLength(1)
+})
+
+it('clears the old profile selection when a new lookup starts', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => selectionAnalysis })))
+  render(<App />)
+  await loadSelectionProfile()
+  fireEvent.click(screen.getByRole('checkbox', { name: /Select sample-api/i }))
+  expect(screen.getByText(/1 of 3 selected/i)).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: /Analyze profile/i }))
+  await waitFor(() => expect(screen.getByText(/0 of 3 selected/i)).toBeInTheDocument())
+  expect(screen.getByRole('checkbox', { name: /Select sample-api/i })).not.toBeChecked()
 })

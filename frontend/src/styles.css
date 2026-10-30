@@ -24,4 +24,6 @@ button:disabled { opacity: .6; cursor: wait; }
 .category-grid, .repo-list { list-style: none; padding: 0; }
 .repo-list li { border-top: 1px solid #e4e8ef; padding: 12px 0; }
 .repo-list span { display: block; color: #526070; font-size: .9rem; margin-top: 4px; }
+.repo-select { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; font-size: .9rem; }
+.repo-select input { flex: none; min-width: auto; }
 @media (max-width: 600px) { .lookup-row { flex-direction: column; } .profile { align-items: flex-start; } }

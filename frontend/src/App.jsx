@@ -10,10 +10,12 @@ export default function App() {
   const [analysis, setAnalysis] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [selectedIds, setSelectedIds] = useState([])
 
   async function submit(event) {
     event.preventDefault()
     setAnalysis(null)
+    setSelectedIds([])
     setError('')
     setLoading(true)
     try {
@@ -28,6 +30,12 @@ export default function App() {
   const profile = analysis?.profile
   const stats = analysis?.statistics
   const overview = analysis?.portfolio_overview
+
+  function toggleSelection(id) {
+    setSelectedIds(current => current.includes(id)
+      ? current.filter(selectedId => selectedId !== id)
+      : current.length < 3 ? [...current, id] : current)
+  }
 
   return <main className="page">
     <header>
@@ -84,10 +92,18 @@ export default function App() {
 
       <section className="card">
         <h2>Repositories</h2>
+        {analysis.repositories.length > 0 && <p>Select up to 3 repositories. {selectedIds.length} of 3 selected.</p>}
         {analysis.repositories.length === 0 ? <p>No public repositories were returned.</p> :
           <ul className="repo-list">{analysis.repositories.map(repository =>
             <li key={repository.id}>
               <a href={repository.url} target="_blank" rel="noreferrer">{repository.name}</a>
+              <label className="repo-select">
+                <input type="checkbox" checked={selectedIds.includes(repository.id)}
+                  disabled={selectedIds.length === 3 && !selectedIds.includes(repository.id)}
+                  onChange={() => toggleSelection(repository.id)}
+                  aria-label={`Select ${repository.name}`} />
+                Select repository
+              </label>
               <span>Estimated: {repository.estimated_category}{repository.fork ? ' · Fork' : ''}</span>
               {repository.description && <p>{repository.description}</p>}
             </li>)}</ul>}
