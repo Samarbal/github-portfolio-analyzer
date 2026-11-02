@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { lookupProfile } from './api.js'
+import { useEffect, useRef, useState } from 'react'
+import { generateInsights, lookupProfile } from './api.js'
 
 const categories = ['All', 'Web app', 'API or service', 'Data or AI', 'Developer tool', 'Mobile app', 'Unclassified']
 const themeKey = 'portfolio-analyzer-theme'
@@ -16,6 +16,15 @@ function dateLabel(value) {
   return value ? value.slice(0, 10) : 'Unavailable'
 }
 
+function EvidenceLinks({ ids, references }) {
+  return <span className="evidence-links">Evidence: {ids.map((id, index) => {
+    const reference = references.find(item => item.id === id)
+    return <span key={id}>{index > 0 && ', '}<a href={reference.url} target="_blank" rel="noreferrer">
+      {reference.kind === 'readme' ? 'README' : 'Repository'} {reference.repository_id} ↗
+    </a></span>
+  })}</span>
+}
+
 export default function App() {
   const [theme, setTheme] = useState(initialTheme)
   const [input, setInput] = useState('')
@@ -25,6 +34,10 @@ export default function App() {
   const [selectedIds, setSelectedIds] = useState([])
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('All')
+  const [insight, setInsight] = useState(null)
+  const [insightError, setInsightError] = useState('')
+  const [insightLoading, setInsightLoading] = useState(false)
+  const generationVersion = useRef(0)
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -38,10 +51,14 @@ export default function App() {
 
   async function submit(event) {
     event.preventDefault()
+    generationVersion.current += 1
     setAnalysis(null)
     setSelectedIds([])
     setSearch('')
     setCategory('All')
+    setInsight(null)
+    setInsightError('')
+    setInsightLoading(false)
     setError('')
     setLoading(true)
     try {
@@ -54,9 +71,29 @@ export default function App() {
   }
 
   function toggleSelection(id) {
+    generationVersion.current += 1
+    setInsight(null)
+    setInsightError('')
+    setInsightLoading(false)
     setSelectedIds(current => current.includes(id)
       ? current.filter(selectedId => selectedId !== id)
       : current.length < 3 ? [...current, id] : current)
+  }
+
+  async function requestInsights() {
+    if (!profile || selectedIds.length < 1 || selectedIds.length > 3 || insightLoading) return
+    const version = ++generationVersion.current
+    setInsight(null)
+    setInsightError('')
+    setInsightLoading(true)
+    try {
+      const result = await generateInsights(profile.username, selectedIds)
+      if (version === generationVersion.current) setInsight(result)
+    } catch (failure) {
+      if (version === generationVersion.current) setInsightError(failure.message || 'AI insights are unavailable.')
+    } finally {
+      if (version === generationVersion.current) setInsightLoading(false)
+    }
   }
 
   const profile = analysis?.profile
@@ -235,7 +272,38 @@ export default function App() {
                 <li key={repository.id} className="selected-name">{repository.name}</li>)}</ul>
             </>
             : <p className="empty-state">Select up to three repositories to prepare your insights.</p>}
-          <p className="insights-note">Evidence-based AI insights will be available after generation is implemented.</p>
+          <button type="button" className="generate-button" onClick={requestInsights}
+            disabled={!analysis || selectedIds.length === 0 || insightLoading}>
+            {insightLoading ? 'Generating insights…' : 'Generate AI Insights'}
+          </button>
+          {insightLoading && <p role="status">Preparing selected repository evidence and generating insights…</p>}
+          {insightError && <p role="alert" className="insight-error">{insightError}</p>}
+          {insight && <div className="insight-result">
+            <p className="insight-label">AI interpretation · Provider used: {insight.provider_used}</p>
+            <h3>Professional summary</h3>
+            <p className="summary-claims">{insight.professional_summary.claims.map((claim, index) =>
+              <span key={index}>{index > 0 && ' '}{claim.text} <EvidenceLinks ids={claim.evidence_ids} references={insight.evidence_references} /></span>)}</p>
+            <h3>Potential strengths</h3>
+            {insight.potential_strengths.length
+              ? <ul className="insight-items">{insight.potential_strengths.map((claim, index) =>
+                <li key={index}>{claim.text} <EvidenceLinks ids={claim.evidence_ids} references={insight.evidence_references} /></li>)}</ul>
+              : <p>No potential strengths were supported by the selected evidence.</p>}
+            <h3>Portfolio recommendations</h3>
+            <ol className="insight-items">{insight.portfolio_recommendations.map((item, index) =>
+              <li key={index}>{item.action} <EvidenceLinks ids={item.evidence_ids} references={insight.evidence_references} /></li>)}</ol>
+            <h3>README availability</h3>
+            <ul className="readme-status-list">{insight.readme_status.map(item => {
+              const repository = selectedRepositories.find(candidate => candidate.id === item.repository_id)
+              return <li key={item.repository_id}>{repository?.name || 'Selected repository'}: {item.status}.
+                {item.url && <> <a href={item.url} target="_blank" rel="noreferrer">View README ↗</a>.</>}
+                {item.readme_truncated && ' Only the first 4,000 characters were analyzed; later details may be omitted.'}
+                {item.status === 'missing' && ' No README was found.'}
+                {item.status === 'empty' && ' The README is empty.'}
+                {item.status === 'unavailable' && ' README content was unavailable.'}</li>
+            })}</ul>
+            <p className="insights-note">Review the linked public evidence to assess whether each interpretation is supported.</p>
+          </div>}
+          {!insight && !insightError && !insightLoading && <p className="insights-note">Insights are generated only when you choose repositories and click the button.</p>}
         </section>
       </aside>
     </div>

@@ -115,7 +115,7 @@ it('loads a username, scopes facts, and shows the free estimated overview withou
   expect(screen.getByText(/Select up to three repositories to prepare/i)).toBeInTheDocument()
   expect(requests).toHaveLength(1)
   expect(requests[0]).toContain('/api/profile?input=octocat')
-  expect(screen.queryByRole('button', { name: /Generate AI Insights/i })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /Generate AI Insights/i })).toBeDisabled()
 })
 
 it('accepts a profile URL and displays a useful API error without stale results', async () => {
@@ -168,7 +168,7 @@ it('selects up to three, blocks a fourth, and permits deselection and replacemen
   fireEvent.click(replacement)
   expect(replacement).toBeChecked()
   expect(screen.getByText('data-analysis', { selector: '.selected-name' })).toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: /Generate AI Insights/i })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /Generate AI Insights/i })).toBeEnabled()
   expect(requests).toHaveLength(1)
 })
 
@@ -214,4 +214,81 @@ it('shows an empty search result and lets the timeline collapse again', async ()
   expect(timeline).toHaveAttribute('open')
   fireEvent.click(summary)
   expect(timeline).not.toHaveAttribute('open')
+})
+
+const insightResult = {
+  professional_summary: { claims: [{ text: 'The selected project describes an API.', evidence_ids: ['repo:1'] }] },
+  potential_strengths: [{ text: 'The public description states a clear purpose.', evidence_ids: ['repo:1'] }],
+  portfolio_recommendations: [1, 2, 3].map(number => ({
+    action: `Add usage example ${number}.`, evidence_ids: ['readme:1'],
+  })),
+  evidence_references: [
+    { id: 'repo:1', repository_id: 1, kind: 'repository', url: 'https://github.com/octocat/sample-api' },
+    { id: 'readme:1', repository_id: 1, kind: 'readme', url: 'https://github.com/octocat/sample-api#readme' },
+  ],
+  provider_used: 'groq',
+  readme_status: [{ repository_id: 1, status: 'present', url: 'https://github.com/octocat/sample-api#readme', readme_truncated: true }],
+}
+
+it('generates only after a click and displays cited claims, provider, and README disclosure', async () => {
+  const requests = []
+  vi.stubGlobal('fetch', vi.fn(async (url, options) => {
+    requests.push({ url, options })
+    return { ok: true, json: async () => options?.method === 'POST' ? insightResult : selectionAnalysis }
+  }))
+  render(<App />)
+  await loadSelectionProfile()
+  const generate = screen.getByRole('button', { name: /Generate AI Insights/i })
+  expect(generate).toBeDisabled()
+  fireEvent.click(screen.getByRole('checkbox', { name: /Select sample-api/i }))
+  expect(requests).toHaveLength(1)
+  expect(generate).toBeEnabled()
+  fireEvent.click(generate)
+  expect(await screen.findByText(/Provider used: groq/i)).toBeInTheDocument()
+  expect(requests).toHaveLength(2)
+  expect(requests[1].url).toBe('/api/insights')
+  expect(JSON.parse(requests[1].options.body)).toEqual({ username: 'octocat', repository_ids: [1] })
+  expect(screen.getByText(/The selected project describes an API/i)).toBeInTheDocument()
+  expect(screen.getByText(/Add usage example 3/i)).toBeInTheDocument()
+  expect(screen.getAllByRole('link', { name: /Repository 1/i })).toHaveLength(2)
+  expect(screen.getAllByRole('link', { name: /README 1/i })).toHaveLength(3)
+  expect(screen.getByText(/Only the first 4,000 characters were analyzed/i)).toBeInTheDocument()
+})
+
+it('retains factual results after an AI error and clears stale insight when selection changes', async () => {
+  let failure = false
+  vi.stubGlobal('fetch', vi.fn(async (url, options) => options?.method === 'POST'
+    ? failure
+      ? { ok: false, json: async () => ({ code: 'AI_NOT_CONFIGURED', message: 'AI insights are not configured yet.' }) }
+      : { ok: true, json: async () => insightResult }
+    : { ok: true, json: async () => selectionAnalysis }))
+  render(<App />)
+  await loadSelectionProfile()
+  fireEvent.click(screen.getByRole('checkbox', { name: /Select sample-api/i }))
+  fireEvent.click(screen.getByRole('button', { name: /Generate AI Insights/i }))
+  expect(await screen.findByText(/Provider used: groq/i)).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('checkbox', { name: /Select sample-api/i }))
+  expect(screen.queryByText(/Provider used: groq/i)).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('checkbox', { name: /Select site-dashboard/i }))
+  failure = true
+  fireEvent.click(screen.getByRole('button', { name: /Generate AI Insights/i }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('AI insights are not configured yet.')
+  expect(screen.getByText('Octo Cat')).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Portfolio Overview' })).toBeInTheDocument()
+})
+
+it('ignores an in-flight insight response after the selection changes', async () => {
+  let finishInsight
+  vi.stubGlobal('fetch', vi.fn(async (url, options) => options?.method === 'POST'
+    ? new Promise(resolve => { finishInsight = () => resolve({ ok: true, json: async () => insightResult }) })
+    : { ok: true, json: async () => selectionAnalysis }))
+  render(<App />)
+  await loadSelectionProfile()
+  fireEvent.click(screen.getByRole('checkbox', { name: /Select sample-api/i }))
+  fireEvent.click(screen.getByRole('button', { name: /Generate AI Insights/i }))
+  expect(screen.getByText(/Preparing selected repository evidence/i)).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('checkbox', { name: /Select sample-api/i }))
+  finishInsight()
+  await waitFor(() => expect(screen.getByRole('button', { name: /Generate AI Insights/i })).toBeDisabled())
+  expect(screen.queryByText(/Provider used: groq/i)).not.toBeInTheDocument()
 })

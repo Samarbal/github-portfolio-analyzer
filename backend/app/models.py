@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 Category = Literal[
@@ -75,14 +75,61 @@ class ReadmeEvidence(BaseModel):
 
 
 class InsightClaim(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     text: str
-    evidence_ids: list[str]
+    evidence_ids: list[str] = Field(min_length=1)
+
+    @field_validator("text")
+    @classmethod
+    def text_is_substantive(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Empty claim")
+        return value.strip()
+
+
+class InsightRecommendation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    action: str
+    evidence_ids: list[str] = Field(min_length=1)
+
+    @field_validator("action")
+    @classmethod
+    def action_is_substantive(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Empty recommendation")
+        return value.strip()
+
+
+class ProfessionalSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    claims: list[InsightClaim] = Field(min_length=1)
+
+
+class ProviderOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    professional_summary: ProfessionalSummary
+    potential_strengths: list[InsightClaim] = Field(max_length=3)
+    portfolio_recommendations: list[InsightRecommendation] = Field(min_length=3, max_length=3)
+
+
+class EvidenceReference(BaseModel):
+    id: str
+    repository_id: int
+    kind: Literal["repository", "readme"]
+    url: str
+
+
+class ReadmeStatus(BaseModel):
+    repository_id: int
+    status: Literal["present", "empty", "missing", "unavailable"]
+    url: str | None
+    readme_truncated: bool
 
 
 class InsightResult(BaseModel):
-    professional_summary: dict[str, list[InsightClaim]]
+    professional_summary: ProfessionalSummary
     potential_strengths: list[InsightClaim]
-    portfolio_recommendations: list[dict]
-    evidence_references: list[dict]
+    portfolio_recommendations: list[InsightRecommendation]
+    evidence_references: list[EvidenceReference]
     provider_used: Literal["gemini", "groq", "openai"]
-    readme_status: list[dict]
+    readme_status: list[ReadmeStatus]

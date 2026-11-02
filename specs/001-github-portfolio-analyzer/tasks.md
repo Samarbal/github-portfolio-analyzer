@@ -62,24 +62,24 @@
 
 **Independent test:** Given selected-project fixtures and a provider-shaped result, accept only one supported summary, zero to three supported strengths, exactly three supported recommendations, and server-allowlisted evidence IDs. Reject fabricated references and malformed or unsupported output.
 
-- [ ] T021 [US5] Write tests for claim-level citations in the one rendered summary and each single-proposition recommendation, evidence ID allowlisting and selected-repository membership, server-resolved URLs, summary/strength/recommendation counts, missing citations, invalid structure, and malicious README instructions in `backend/tests/test_insights.py`. Note that semantic support needs human review.
-- [ ] T022 [US5] Implement selected-project evidence IDs, claim-level structured result validation, and conservative untrusted-README prompt context in `backend/app/insights.py`; validate IDs and membership, return only evidence links created from server-side GitHub data, and leave semantic support review to the visitor.
+- [X] T021 [US5] Write tests for claim-level citations in the one rendered summary and each single-proposition recommendation, evidence ID allowlisting and selected-repository membership, server-resolved URLs, summary/strength/recommendation counts, missing citations, invalid structure, and malicious README instructions in `backend/tests/test_insights.py`. Note that semantic support needs human review.
+- [X] T022 [US5] Implement selected-project evidence IDs, claim-level structured result validation, and conservative untrusted-README prompt context in `backend/app/insights.py`; validate IDs and membership, return only evidence links created from server-side GitHub data, and leave semantic support review to the visitor.
 
 ## Phase 8: US-004 — Explicit AI generation and provider fallback (P3, M3)
 
 **Independent test:** Profile lookup never calls AI; only a valid selection plus Generate AI Insights does. Mocked providers prove Gemini → Groq → OpenAI order, missing-key skip, invalid-key distinction, one bounded attempt each, invalid-output fallback, and factual-profile retention after failure.
 
-- [ ] T023 [US4] Write mocked provider and endpoint tests for explicit generation, structured output, provider order, missing/invalid credentials, timeout, rate limit, invalid output, no-credentials/all-fail errors, `INSUFFICIENT_EVIDENCE` with zero provider calls, and no fallback on invalid selection or general GitHub failure in `backend/tests/test_insights.py`.
-- [ ] T024 [US4] Implement direct-HTTP Gemini, Groq, and OpenAI adapters with server-only model/key configuration, finite timeouts, and no automatic retries in `backend/app/insights.py`; attempt each configured provider at most once in the approved order.
-- [ ] T025 [US4] Implement `POST /api/insights` in `backend/app/main.py`, revalidating one to three selected IDs, retrieving bounded READMEs, returning `INSUFFICIENT_EVIDENCE` before AI when substantive selected-repository evidence is absent, invoking validated provider fallback otherwise, and returning visitor-safe error codes from `contracts/api.md`.
-- [ ] T026 [US4] Add frontend interaction tests for a disabled Generate action with zero selected, click-only generation, claim-level evidence-linked display, provider name, README disclosures, failure retention, and stale insight on selection change in `frontend/src/App.test.jsx`.
-- [ ] T027 [US4] Add the explicit Generate AI Insights action and distinct AI panel in `frontend/src/App.jsx` and `frontend/src/api.js`; render cited summary claims as one summary and display only validated insights, evidence links, `provider_used`, README status/truncation, loading, and errors.
+- [X] T023 [US4] Write mocked provider and endpoint tests for explicit generation, structured output, provider order, missing/invalid credentials, timeout, rate limit, invalid output, no-credentials/all-fail errors, `INSUFFICIENT_EVIDENCE` with zero provider calls, and no fallback on invalid selection or general GitHub failure in `backend/tests/test_insights.py`.
+- [X] T024 [US4] Implement direct-HTTP Gemini, Groq, and OpenAI adapters with server-only model/key configuration, finite timeouts, and no automatic retries in `backend/app/insights.py`; attempt each configured provider at most once in the approved order.
+- [X] T025 [US4] Implement `POST /api/insights` in `backend/app/main.py`, revalidating one to three selected IDs, retrieving bounded READMEs, returning `INSUFFICIENT_EVIDENCE` before AI when substantive selected-repository evidence is absent, invoking validated provider fallback otherwise, and returning visitor-safe error codes from `contracts/api.md`.
+- [X] T026 [US4] Add frontend interaction tests for a disabled Generate action with zero selected, click-only generation, claim-level evidence-linked display, provider name, README disclosures, failure retention, and stale insight on selection change in `frontend/src/App.test.jsx`.
+- [X] T027 [US4] Add the explicit Generate AI Insights action and distinct AI panel in `frontend/src/App.jsx` and `frontend/src/api.js`; render cited summary claims as one summary and display only validated insights, evidence links, `provider_used`, README status/truncation, loading, and errors.
 
 ## Phase 9: Final validation — M3
 
 **Goal:** Check the completed local MVP against the approved contract without adding scope.
 
-- [ ] T028 Run `backend/tests/test_profile.py`, `backend/tests/test_analysis.py`, `backend/tests/test_classifier.py`, `backend/tests/test_readme.py`, `backend/tests/test_insights.py`, and `frontend/src/App.test.jsx`, then perform `specs/001-github-portfolio-analyzer/quickstart.md` scenarios; report actual results and unresolved gaps before final human review.
+- [X] T028 Run `backend/tests/test_profile.py`, `backend/tests/test_analysis.py`, `backend/tests/test_classifier.py`, `backend/tests/test_readme.py`, `backend/tests/test_insights.py`, and `frontend/src/App.test.jsx`, then perform `specs/001-github-portfolio-analyzer/quickstart.md` scenarios; report actual results and unresolved gaps before final human review.
 
 **M3 checkpoint:** Review tests, local demo, evidence behavior, and remaining risks. Do not commit, push, or deploy without separate explicit approval.
 
