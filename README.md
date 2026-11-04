@@ -69,3 +69,16 @@ Backend tests mock GitHub and AI providers, including README failures, evidence 
 The API returns visitor-safe `{ "code", "message" }` errors. If selected evidence is insufficient, it returns `INSUFFICIENT_EVIDENCE` before contacting an AI provider. AI failure does not remove the factual profile view.
 
 For detailed approved requirements and the full response contract, see [`docs/ai-sdlc/spec.md`](docs/ai-sdlc/spec.md) and [`specs/001-github-portfolio-analyzer/contracts/api.md`](specs/001-github-portfolio-analyzer/contracts/api.md).
+
+## Deploy on Render
+
+Create two services from this repository and the `main` branch:
+
+| Service | Root directory | Build command | Start / publish |
+| --- | --- | --- | --- |
+| Python Web Service | `backend` | `pip install -r requirements.txt` | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+| Static Site | `frontend` | `npm ci && npm run build` | Publish directory: `dist` |
+
+Set `GROQ_API_KEY` on the **backend Web Service**. Set `FRONTEND_ORIGIN` there to the exact public Static Site origin, for example `https://your-site.onrender.com` (no path). Set `VITE_API_BASE_URL` on the **frontend Static Site** to the public backend origin, for example `https://your-api.onrender.com` (no path). Then redeploy both services. Never put an AI key in a `VITE_` variable or commit a `.env` file.
+
+The local Vite proxy remains the default when `VITE_API_BASE_URL` is unset. After deployment, open the frontend URL and test both profile lookup and Generate AI Insights. Render's free backend can take time to wake after inactivity.

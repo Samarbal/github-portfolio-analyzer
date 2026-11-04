@@ -1,4 +1,7 @@
+import os
+
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from . import github, insights
@@ -6,6 +9,15 @@ from .classifier import classify_repository, portfolio_overview
 from .models import InsightResult, Profile, ProfileAnalysis
 
 app = FastAPI(title="GitHub Portfolio Analyzer")
+
+frontend_origin = os.getenv("FRONTEND_ORIGIN", "").strip().rstrip("/")
+if frontend_origin:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[frontend_origin],
+        allow_methods=["GET", "POST"],
+        allow_headers=["Content-Type"],
+    )
 
 ERRORS = {
     "INVALID_PROFILE_INPUT": (400, "Enter a valid GitHub username or profile URL."),
